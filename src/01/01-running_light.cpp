@@ -1,121 +1,132 @@
 #include <Arduino.h>
 
-// LED pins
+// Define LED pins
 const int ledPins[] = {10, 11, 12, LED_BUILTIN};
-const int numLeds = 4;
+const int numOfLeds = 4;
 
-// Button pins
-const int buttonForwardPin = 7;
-const int buttonBackwardPin = 6;
+// Define button pins
+const int buttonPin1 = 7;
+const int buttonPin2 = 6;
 
-// Button state tracking
-bool lastButtonForwardState = HIGH;
-bool lastButtonBackwardState = HIGH;
+// Variables to keep track of the current LED
+int currentLed = 0;
 
-// Timing for debouncing and long press detection
-unsigned long lastDebounceTime = 0;
-unsigned long debounceDelay = 50;
-unsigned long longPressTime = 500;
-bool inAutomaticMode = false;
-int automaticDirection = 1; // 1 for forward, -1 for backward
+// Timing variables
+unsigned long lastButtonPress = 0;
+const long debounceTime = 50;    // 50 milliseconds debounce period
+const long longPressTime = 500;  // 500 milliseconds for a long press
+const long autoModePeriod = 200; // 200 milliseconds for automatic mode
 
-// LED control
-int currentLed = 0; // Start with the first LED
+// State variables
+bool autoMode = false;
+unsigned long lastAutoChange = 0;
+int autoDirection = 1; // 1 for forward, -1 for backward
+
+// Function declarations
+void updateLed();
+void checkButtons();
+void enterAutoMode(int direction);
 
 void setup()
 {
     // Initialize LEDs
-    for (int i = 0; i < numLeds; i++)
+    for (int i = 0; i < numOfLeds; i++)
     {
         pinMode(ledPins[i], OUTPUT);
-    }
-
-    // Initialize buttons with internal pull-up resistors
-    pinMode(buttonForwardPin, INPUT_PULLUP);
-    pinMode(buttonBackwardPin, INPUT_PULLUP);
-
-    // Turn off all LEDs initially
-    for (int i = 0; i < numLeds; i++)
-    {
         digitalWrite(ledPins[i], LOW);
     }
+
+    // Initialize buttons with internal pull-up
+    pinMode(buttonPin1, INPUT_PULLUP);
+    pinMode(buttonPin2, INPUT_PULLUP);
+
+    // Set the first LED on
+    digitalWrite(ledPins[currentLed], HIGH);
 }
 
 void loop()
 {
-    // Read the state of the buttons
-    bool buttonForwardState = digitalRead(buttonForwardPin);
-    bool buttonBackwardState = digitalRead(buttonBackwardPin);
-
-    // Check for button state change for debouncing
-    if (buttonForwardState != lastButtonForwardState)
+    if (autoMode)
     {
-        lastDebounceTime = millis();
-    }
-
-    if (buttonBackwardState != lastButtonBackwardState)
-    {
-        lastDebounceTime = millis();
-    }
-
-    // After the debounce delay, process the button state
-    if ((millis() - lastDebounceTime) > debounceDelay)
-    {
-        // Detect long press for automatic mode
-        if (buttonForwardState == LOW && (millis() - lastDebounceTime) > longPressTime)
+        // In automatic mode, change LEDs based on autoModePeriod
+        if (millis() - lastAutoChange >= autoModePeriod)
         {
-            inAutomaticMode = true;
-            automaticDirection = 1;
-        }
-        else if (buttonBackwardState == LOW && (millis() - lastDebounceTime) > longPressTime)
-        {
-            inAutomaticMode = true;
-            automaticDirection = -1;
-        }
-        else if (buttonForwardState == LOW)
-        {
-            // Short press, manual mode
-            changeLed(1);
-            inAutomaticMode = false;
-        }
-        else if (buttonBackwardState == LOW)
-        {
-            // Short press, manual mode
-            changeLed(-1);
-            inAutomaticMode = false;
+            currentLed = (currentLed + autoDirection + numOfLeds) % numOfLeds;
+            updateLed();
+            lastAutoChange = millis();
         }
     }
-
-    // Automatic mode
-    if (inAutomaticMode)
-    {
-        static unsigned long lastAutoAdvanceTime = 0;
-        if (millis() - lastAutoAdvanceTime > 200)
-        { // Advance every 200 ms
-            changeLed(automaticDirection);
-            lastAutoAdvanceTime = millis();
-        }
-    }
-
-    // Remember the last button state
-    lastButtonForwardState = buttonForwardState;
-    lastButtonBackwardState = buttonBackwardState;
-
-    delay(1); // Small delay to avoid missing button presses
+    checkButtons(); // Always check the button states
+    delay(1);       // Small delay to prevent bouncing
 }
 
-void changeLed(int direction)
+void updateLed()
 {
-    // Turn off the current LED
-    digitalWrite(ledPins[currentLed], LOW);
-
-    // Calculate the next LED index
-    currentLed += direction;
-    if (currentLed >= numLeds)
-        currentLed = 0;
-    else if (currentLed < 0)
-        currentLed = numLeds - 1;
-
-    // Turn on the new LED
+    // Turn off all LEDs
+    for (int i = 0; i < numOfLeds; i++)
+    {
+        digitalWrite(ledPins[i], LOW);
+    }
+    // Turn on the current LED
     digitalWrite(ledPins[currentLed], HIGH);
+}
+
+void checkButtons()
+{
+    // Read the state of the buttons
+    int buttonState1 = digitalRead(buttonPin1);
+    int buttonState2 = digitalRead(buttonPin2);
+    static int lastButtonState1 = HIGH;
+    static int lastButtonState2 = HIGH;
+    unsigned long currentMillis = millis();
+
+    // Check if button 1 was pressed
+    if (buttonState1 == LOW && lastButtonState1 == HIGH)
+    {
+        lastButtonPress = currentMillis;
+    }
+    if (buttonState1 == HIGH && lastButtonState1 == LOW)
+    {
+        if (currentMillis - lastButtonPress >= longPressTime)
+        {
+            enterAutoMode(1); // Enter automatic mode forward
+        }
+        else
+        {
+            autoMode = false;
+            currentLed = (currentLed + 1) % numOfLeds;
+            updateLed();
+        }
+    }
+    lastButtonState1 = buttonState1;
+
+    // Check if button 2 was pressed
+    if (buttonState2 == LOW && lastButtonState2 == HIGH)
+    {
+        lastButtonPress = currentMillis;
+    }
+    if (buttonState2 == HIGH && lastButtonState2 == LOW)
+    {
+        if (currentMillis - lastButtonPress >= longPressTime)
+        {
+            enterAutoMode(-1); // Enter automatic mode backward
+        }
+        else
+        {
+            autoMode = false;
+            currentLed = (currentLed - 1 + numOfLeds) % numOfLeds;
+            updateLed();
+        }
+    }
+    lastButtonState2 = buttonState2;
+}
+
+void enterAutoMode(int direction)
+{
+    autoMode = true;
+    autoDirection = direction;
+    lastAutoChange = millis();
+    // In automatic mode, immediately update to the next LED
+    currentLed = (currentLed + autoDirection + numOfLeds) % numOfLeds;
+    updateLed();
 }
