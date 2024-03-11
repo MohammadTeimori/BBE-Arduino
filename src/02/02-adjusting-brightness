@@ -1,1 +1,42 @@
+#include <Arduino.h>
 
+#define LED_A_PIN 9
+#define LED_B_PIN 10
+
+void setup()
+{
+  pinMode(LED_A_PIN, OUTPUT);
+  pinMode(LED_B_PIN, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop()
+{
+  if (Serial.available() > 1)
+  {
+    char led = Serial.read();
+    char brightnessChar = Serial.read();
+    int brightness = (brightnessChar - '0') * 23; // Scale 0-9 to 0-230 (approximately 0-90% of 255)
+
+    if (brightness < 0 || brightness > 230)
+    {
+      Serial.println("?");
+      return;
+    }
+
+    switch (led)
+    {
+    case 'a':
+      analogWrite(LED_A_PIN, brightness);
+      Serial.println("ok");
+      break;
+    case 'b':
+      analogWrite(LED_B_PIN, brightness);
+      Serial.println("ok");
+      break;
+    default:
+      Serial.println("?");
+      break;
+    }
+  }
+}
