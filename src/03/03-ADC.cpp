@@ -2,12 +2,11 @@
 
 void setup()
 {
-  Serial.begin(9600);           // Initialize UART
-  pinMode(8, OUTPUT);           // Set external LED pin as output
-  pinMode(LED_BUILTIN, OUTPUT); // Set internal LED pin as output
+  Serial.begin(9600);           // init UART
+  pinMode(8, OUTPUT);           // set external LED pin as output
+  pinMode(LED_BUILTIN, OUTPUT); // set internal LED pin as output
 }
 
-// Global variable to control running state
 bool isRunning = false;
 
 void loop()
@@ -22,8 +21,8 @@ void loop()
     else if (receivedChar == 'S')
     {
       isRunning = false;
-      digitalWrite(8, LOW);           // Turn off external LED
-      digitalWrite(LED_BUILTIN, LOW); // Turn off internal LED
+      digitalWrite(8, LOW);           // off external LED
+      digitalWrite(LED_BUILTIN, LOW); // off internal LED
     }
   }
 
@@ -38,11 +37,12 @@ void loop()
       Serial.println(adcValue);                             // Send ADC value via UART
       digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN)); // Toggle internal LED
 
-      // Calculate delay for external LED based on ADC value
-      float frequency = map(adcValue, 0, 1023, 1, 10); // Map ADC value to frequency range
-      long toggleDelay = 1000 / (frequency * 2);       // Calculate toggle delay
+      // calc delay for external LED based on ADC value
+      float frequency = map(adcValue, 0, 1023, 1, 10); // Map ADC value to freq range
+      long toggleDelay = 1000 / (frequency * 2);       // calc toggle delay
 
       static unsigned long lastToggleMillis = 0;
+      // Update toggleDelay regardless of whetther LED is toggled
       if (currentMillis - lastToggleMillis >= toggleDelay)
       {
         lastToggleMillis = currentMillis;
